@@ -6,11 +6,11 @@ Object-Oriented Programming - OOP ក្នុងភាសា C# ដោយផ្
 
 OOP គឺជាវិធីសាស្ត្រក្នុងការរចនាកម្មវិធី (Software applications design) ដែលពឹងផ្អែកលើ Class និង Object រួមជាមួយគោលការណ៍សំខាន់ៗចំនួន ៣៖
 
-    - **Encapsulation (ការវេចខ្ចប់)**: ជាការបញ្ចូលគ្នារវាង Property, អថេរ (Fields), អនុគមន៍ (Methods) និង Event ឱ្យស្ថិតនៅក្នុងកញ្ចប់តែមួយ។
+- **Encapsulation (ការវេចខ្ចប់)**: ជាការបញ្ចូលគ្នារវាង Property, អថេរ (Fields), អនុគមន៍ (Methods) និង Event ឱ្យស្ថិតនៅក្នុងកញ្ចប់តែមួយ។
 
-    - **Inheritance (ការបន្តពូជ)**: ជាសមត្ថភាពដែល Object មួយអាចទទួលយកនូវលក្ខណៈផ្សេងៗពី Object ដ៏ទៃទៀត។
+- **Inheritance (ការបន្តពូជ)**: ជាសមត្ថភាពដែល Object មួយអាចទទួលយកនូវលក្ខណៈផ្សេងៗពី Object ដ៏ទៃទៀត។
 
-    - **Polymorphism (ពហុរូបភាព)**: ជាលក្ខណៈដែល Object ពីរផ្សេងគ្នា មាន Property និង Method ដូចគ្នា ប៉ុន្តែការអនុវត្ត (Implementation) មានភាពខុសគ្នា។
+- **Polymorphism (ពហុរូបភាព)**: ជាលក្ខណៈដែល Object ពីរផ្សេងគ្នា មាន Property និង Method ដូចគ្នា ប៉ុន្តែការអនុវត្ត (Implementation) មានភាពខុសគ្នា។
 
 
 ---
