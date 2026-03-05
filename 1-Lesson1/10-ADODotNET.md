@@ -209,3 +209,291 @@ Console.WriteLine("បញ្ចូលជោគជ័យ " + rowsAffected + " ជ
 | DataReader  | Connected    | លឿនបំផុត | ទេ (read-only)     | អានទិន្នន័យច្រើន លឿន                   |
 | DataAdapter | Bridge       | មធ្យម    | បាទ (Fill/Update)  | ភ្ជាប់ DataSet និង DB                  |
 | DataSet     | Disconnected | យឺតជាង   | បាទ                | គ្រប់គ្រងទិន្នន័យ offline, ច្រើន table |
+
+---
+
+## ការប្រើប្រាស់ជាមួយ Stored Procedure
+
+Stored Procedure (ឬហៅថា **Stored Proc**) គឺជាកូដ SQL ដែលត្រូវបានរក្សាទុកនៅក្នុង database (ជាពិសេស SQL Server) ដែលអាចទទួល parameters និងត្រឡប់លទ្ធផល (result set, output parameters, ឬ return value)។ វាមានអត្ថប្រយោជន៍ខ្លាំង៖
+
+- **សុវត្ថិភាព**៖ ការពារ **SQL Injection** ល្អជាងការសរសេរ query ដោយផ្ទាល់
+- **ល្បឿន**៖ Database បង្កើត execution plan ម្តងហើយប្រើឡើងវិញ
+- **ងាយស្រួលថែទាំ**៖ ផ្លាស់ប្តូរ logic នៅ database ម្តង មិនចាំបាច់ compile កម្មវិធីឡើងវិញ
+- **ការគ្រប់គ្រង**៖ អាចប្រើ permissions ដាច់ដោយឡែក
+
+នៅក្នុង **ADO.NET** យើងប្រើ **SqlCommand** ដើម្បីហៅ Stored Procedure ដោយកំណត់ `CommandType = CommandType.StoredProcedure`។
+
+---
+
+### ជំហានសំខាន់ៗក្នុងការហៅ Stored Procedure ដោយ ADO.NET
+
+1. បើក **Connection** (SqlConnection)
+2. បង្កើត **SqlCommand** ដោយបញ្ជាក់ឈ្មោះ Stored Procedure
+3. កំណត់ `CommandType = CommandType.StoredProcedure`
+4. បន្ថែម **Parameters** (បើមាន input/output)
+5. អនុវត្តដោយវិធីសមស្រប៖
+   - `ExecuteReader()` → សម្រាប់ SELECT (ត្រឡប់ result set)
+   - `ExecuteNonQuery()` → សម្រាប់ INSERT/UPDATE/DELETE (មិនត្រឡប់ result set)
+   - `ExecuteScalar()` → សម្រាប់តម្លៃតែមួយ (ដូចជា COUNT ឬ IDENTITY)
+6. អានលទ្ធផល (បើមាន) និងបិទ connection
+
+### ឧទាហរណ៍ទី១៖ Stored Procedure គ្មាន Parameter (ត្រឡប់ result set)
+
+**Stored Procedure នៅ SQL Server** (សន្មត់ថាមានតារាង Students):
+
+```sql
+CREATE PROCEDURE spGetAllStudents
+AS
+BEGIN
+    SELECT Id, Name, Age FROM Students;
+END
+```
+
+**កូដ C# (Console App)**:
+
+```csharp
+using System;
+using System.Data;
+using System.Data.SqlClient;
+
+class Program
+{
+    static void Main()
+    {
+        string connString = "Server=localhost;Database=YourDB;Trusted_Connection=True;";
+
+        using (SqlConnection conn = new SqlConnection(connString))
+        {
+            try
+            {
+                conn.Open();
+
+                SqlCommand cmd = new SqlCommand("spGetAllStudents", conn);
+                cmd.CommandType = CommandType.StoredProcedure;  // សំខាន់!
+
+                SqlDataReader reader = cmd.ExecuteReader();
+
+                Console.WriteLine("បញ្ជីសិស្សទាំងអស់៖");
+                while (reader.Read())
+                {
+                    Console.WriteLine($"ID: {reader["Id"]}, ឈ្មោះ: {reader["Name"]}, អាយុ: {reader["Age"]}");
+                }
+
+                reader.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("មានបញ្ហា៖ " + ex.Message);
+            }
+        }
+
+        Console.ReadKey();
+    }
+}
+```
+
+---
+
+### ឧទាហរណ៍ទី២៖ Stored Procedure មាន Input Parameter
+
+**Stored Procedure**:
+
+```sql
+CREATE PROCEDURE spGetStudentById
+    @Id INT
+AS
+BEGIN
+    SELECT Id, Name, Age FROM Students WHERE Id = @Id;
+END
+```
+
+**កូដ C#** (ប្រើ `AddWithValue` សាមញ្ញ ឬ `SqlParameter` លម្អិត):
+
+```csharp
+SqlCommand cmd = new SqlCommand("spGetStudentById", conn);
+cmd.CommandType = CommandType.StoredProcedure;
+
+// បន្ថែម parameter (វិធីសាមញ្ញ)
+cmd.Parameters.AddWithValue("@Id", 101);  // ឬ cmd.Parameters.Add("@Id", SqlDbType.Int).Value = 101;
+
+// ឬវិធីលម្អិត (ណែនាំសម្រាប់សុវត្ថិភាពនិង performance)
+SqlParameter param = new SqlParameter
+{
+    ParameterName = "@Id",
+    SqlDbType = SqlDbType.Int,
+    Value = 101
+};
+cmd.Parameters.Add(param);
+
+SqlDataReader reader = cmd.ExecuteReader();
+// អានដូចខាងលើ...
+```
+
+---
+
+### ឧទាហរណ៍ទី៣៖ Stored Procedure មាន Output Parameter (ឧ. ត្រឡប់ ID ថ្មីបន្ទាប់ពី Insert)
+
+**Stored Procedure**:
+
+```sql
+CREATE PROCEDURE spInsertStudent
+    @Name NVARCHAR(100),
+    @Age INT,
+    @NewId INT OUTPUT
+AS
+BEGIN
+    INSERT INTO Students (Name, Age) VALUES (@Name, @Age);
+    SET @NewId = SCOPE_IDENTITY();  -- ឬ @@IDENTITY
+END
+```
+
+**កូដ C#**:
+
+```csharp
+using (SqlCommand cmd = new SqlCommand("spInsertStudent", conn))
+{
+    cmd.CommandType = CommandType.StoredProcedure;
+
+    cmd.Parameters.AddWithValue("@Name", "សុខា");
+    cmd.Parameters.AddWithValue("@Age", 22);
+
+    // Output parameter
+    SqlParameter outParam = new SqlParameter
+    {
+        ParameterName = "@NewId",
+        SqlDbType = SqlDbType.Int,
+        Direction = ParameterDirection.Output
+    };
+    cmd.Parameters.Add(outParam);
+
+    cmd.ExecuteNonQuery();  // សម្រាប់ INSERT
+
+    // អាន output បន្ទាប់ពី execute
+    int newStudentId = (int)outParam.Value;
+    Console.WriteLine($"បញ្ចូលជោគជ័យ! ID ថ្មី៖ {newStudentId}");
+}
+```
+
+### ការប្រៀបធៀបវិធីបន្ថែម Parameters
+
+| វិធី                  | ល្អសម្រាប់        | គុណសម្បត្តិ                         | គុណវិបត្តិ                 |
+| --------------------- | ----------------- | ----------------------------------- | -------------------------- |
+| `AddWithValue`        | សាមញ្ញ លឿនសាកល្បង | ងាយស្រួលសរសេរ                       | អាចមានបញ្ហា type inference |
+| `SqlParameter` លម្អិត | Production code   | គ្រប់គ្រង type និង direction ច្បាស់ | សរសេរច្រើនជាង              |
+
+---
+
+## Using with Views
+
+**Database View** (ឬគ្រាន់តែ **View**) គឺជា "តារាងនិម្មិត" (virtual table) ដែលត្រូវបានបង្កើតឡើងនៅក្នុង database (ដូចជា SQL Server) ដោយផ្អែកលើ **SELECT query** មួយ។ វាមិនរក្សាទុកទិន្នន័យដោយផ្ទាល់ទេ គ្រាន់តែបង្ហាញទិន្នន័យពីតារាងមួយ ឬច្រើនតារាង ដោយអាចមានការច្រោះ (filter), ការគណនា (calculation), ឬការរួមបញ្ចូល (join)។
+
+### គោលបំណងសំខាន់ៗនៃ View
+
+- សម្រួលការសួរទិន្នន័យស្មុគស្មាញ (complex query) ដោយមិនចាំបាច់សរសេរឡើងវិញរាល់ដង
+- បង្កើនសុវត្ថិភាព (security) ដោយអនុញ្ញាតឱ្យ user ចូលប្រើតែ view មិនមែនតារាងពិតប្រាកដទេ
+- លាក់ស្មុគស្មាញនៃតារាងខាងក្រោម (underlying tables)
+- អាចប្រើជា "read-only" interface សម្រាប់ reporting ឬ dashboard
+
+### ភាពខុសគ្នាសំខាន់រវាង View និង Stored Procedure (ពីមេរៀនមុន)
+
+| លក្ខណៈ                    | View                               | Stored Procedure                    |
+| ------------------------- | ---------------------------------- | ----------------------------------- |
+| ប្រភេទ                    | Saved SELECT query (virtual table) | SQL script ដែលអាចមាន logic ច្រើន    |
+| ទទួល parameters?          | ទេ                                 | បាទ (input/output)                  |
+| អាច INSERT/UPDATE/DELETE? | មានករណីខ្លះ (updatable view)       | បាទ (អាចធ្វើអ្វីៗបាន)               |
+| ប្រើសម្រាប់               | បង្ហាញទិន្នន័យសាមញ្ញ/ច្រោះ         | សកម្មភាពស្មុគស្មាញ (business logic) |
+| ល្បឿន compile             | ស្រដៀងគ្នា (មិនខុសគ្នាច្រើន)       | ស្រដៀងគ្នា (execution plan ល្អ)     |
+
+---
+
+### របៀបប្រើ View ជាមួយ ADO.NET ក្នុង C#
+
+ការប្រើ View នៅក្នុង ADO.NET គឺ **ស្រដៀងគ្នាបំផុត** ទៅនឹងការសួរតារាងធម្មតា។ អ្នកគ្រាន់តែសរសេរ `SELECT` លើឈ្មោះ view ជំនួសឱ្យឈ្មោះតារាង។
+
+#### ឧទាហរណ៍៖ សន្មត់ថាមាន View ឈ្មោះ `vw_StudentInfo` ដែល join តារាង Students និង Classes
+
+**SQL ដើម្បីបង្កើត View** (នៅ SQL Server Management Studio):
+
+```sql
+CREATE VIEW vw_StudentInfo
+AS
+SELECT
+    s.Id,
+    s.Name AS StudentName,
+    s.Age,
+    c.ClassName,
+    c.Teacher
+FROM Students s
+INNER JOIN Classes c ON s.ClassId = c.Id;
+```
+
+**កូដ C# ប្រើ ADO.NET ដើម្បីសួរ View** (Console Application):
+
+```csharp
+using System;
+using System.Data.SqlClient;
+
+class Program
+{
+    static void Main()
+    {
+        string connString = "Server=localhost;Database=YourSchoolDB;Trusted_Connection=True;";
+
+        using (SqlConnection conn = new SqlConnection(connString))
+        {
+            try
+            {
+                conn.Open();
+                Console.WriteLine("ភ្ជាប់ជោគជ័យ!");
+
+                // សួរលើ VIEW ដូចតារាងធម្មតា
+                string query = "SELECT * FROM vw_StudentInfo WHERE Age > @AgeLimit";
+
+                using (SqlCommand cmd = new SqlCommand(query, conn))
+                {
+                    // បន្ថែម parameter ដើម្បីសុវត្ថិភាព
+                    cmd.Parameters.AddWithValue("@AgeLimit", 18);
+
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        Console.WriteLine("\nព័ត៌មានសិស្ស (ពី View):");
+                        while (reader.Read())
+                        {
+                            Console.WriteLine($"ID: {reader["Id"]}, " +
+                                              $"ឈ្មោះ: {reader["StudentName"]}, " +
+                                              $"អាយុ: {reader["Age"]}, " +
+                                              $"ថ្នាក់: {reader["ClassName"]}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("បញ្ហា: " + ex.Message);
+            }
+        }
+
+        Console.ReadKey();
+    }
+}
+```
+
+### ជំហានពន្យល់
+
+1. **បង្កើត View** នៅ database ដោយប្រើ `CREATE VIEW` (មិនមែននៅក្នុង C# ទេ)
+2. **នៅក្នុង C#**៖ ប្រើ `SqlCommand` ដូចធម្មតា គ្រាន់តែផ្លាស់ប្តូរ query ទៅ `SELECT ... FROM vw_YourViewName`
+3. **ប្រើ Parameters** ដើម្បីច្រោះទិន្នន័យ (ដូច `@AgeLimit` ខាងលើ) → ការពារ SQL Injection
+4. **ExecuteReader()** → ព្រោះ View ត្រឡប់ result set (dataset) ដូច SELECT ធម្មតា
+5. **មិនអាចប្រើ ExecuteNonQuery()** សម្រាប់ update លើ view ធម្មតា (លើកលែងតែ updatable view ដែលមានលក្ខខណ្ឌជាក់លាក់)
+
+### គន្លឹះល្អៗពេលប្រើ View ជាមួយ ADO.NET
+
+- ប្រើសម្រាប់ **reporting** ឬ **read-only** data → មិនត្រូវការ logic ច្រើន
+- បើចង់មាន parameters ឬ logic ស្មុគស្មាញ (ដូចជា IF, LOOP) → ប្រើ Stored Procedure ជំនួស
+- បើប្រើ **DataAdapter + DataSet** អាច Fill ទិន្នន័យពី view ដូចគ្នា៖
+  ```csharp
+  SqlDataAdapter adapter = new SqlDataAdapter("SELECT * FROM vw_StudentInfo", conn);
+  DataTable dt = new DataTable();
+  adapter.Fill(dt);
+  // បន្ទាប់មកបង្ហាញនៅ DataGridView ឬ loop តាម dt.Rows
+  ```
