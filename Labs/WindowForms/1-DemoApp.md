@@ -46,6 +46,9 @@ CREATE TABLE [dbo].[TbCategories] (
 
 ```
 
+---
+
+
 ## Connection Service
 
 Create new class in Data folder - `ConnectionHelper.cs`
@@ -53,3 +56,20 @@ Create new class in Data folder - `ConnectionHelper.cs`
 write code below
 
 ![alt text](Images/image1.png)
+
+---
+
+## Models 
+
+Create new model class - `Category.cs` and write code below
+
+![alt text](Images/image2.png)
+
+
+---
+
+## Services
+
+Create service `CategoryService.cs` class inside folder Services
+
+![alt text](Images/image3.png)
