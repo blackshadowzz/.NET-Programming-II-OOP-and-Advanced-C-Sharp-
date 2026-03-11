@@ -106,7 +106,7 @@ In DeleteCategory() method, write code like below
 
 ## Design MainForm
 
-![alt text](Images/image9.png)
+![alt text](Images/image12.png)
 
 ```csharp
 namespace WinFormsAppDemo
@@ -130,6 +130,8 @@ namespace WinFormsAppDemo
 ```
 
 ## Design Category form
+
+![alt text](Images/image9.png)
 
 ```csharp
 namespace WinFormsAppDemo.Forms.Lists.Categories
