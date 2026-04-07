@@ -10,7 +10,7 @@
 
 ## 1) ត្រូវមានអ្វីខ្លះមុនចាប់ផ្តើម
 
-សូមដំឡើងឧបករណ៍ខាងក្រោមជាមុន៖
+សូមដំឡើង Tools ខាងក្រោមជាមុន៖
 
 - [.NET SDK (ណែនាំ .NET 9/10)](https://dotnet.microsoft.com/download)
 - [Visual Studio Code](https://code.visualstudio.com/)
